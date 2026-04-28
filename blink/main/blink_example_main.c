@@ -21,10 +21,14 @@ QueueHandle_t xQueueEstacion3;
 
 
 // TAG para debug
-static const char *TAG = "example";
+static const char *TAG1 = "UNIDAD DE CARGA";
+static const char *TAG2 = "UNIDAD DE PREPARACION";
+static const char *TAG3 = "UNIDAD DE PROCESAMIENTO";
+static const char *TAG4 = "PANEL DE ESTADO";
 
+static int contador = 0;
 
-// Parametros tares
+// Parametros tareas
 static uint32_t usStackDepth = 2048;
 TaskHandle_t pvCreatedTask = NULL;
 TaskHandle_t pvParameters = NULL;
@@ -50,11 +54,11 @@ void carga(void *pvParameters) {
             if (xQueueSend(xQueueCemento, &valorAEnviar, 0) == pdPASS)
             {
                 int itemsEnCola = uxQueueMessagesWaiting(xQueueCemento);
-                ESP_LOGI(TAG, ">>> CEMENTO: %d | Elementos en cola: %d", valorAEnviar, itemsEnCola);
+                ESP_LOGI(TAG1, ">>> CEMENTO: %d | Elementos en cola: %d", valorAEnviar, itemsEnCola);
             }
             else
             {
-                ESP_LOGI(TAG, ">>> Estación de cemento llena");
+                ESP_LOGI(TAG1, ">>> Cemento ya disponible");
             }
         }
 
@@ -64,11 +68,11 @@ void carga(void *pvParameters) {
             if (xQueueSend(xQueueAgua, &valorAEnviar, 0) == pdPASS)
             {
                 int itemsEnCola = uxQueueMessagesWaiting(xQueueAgua);
-                ESP_LOGI(TAG, ">>> AGUA: %d | Elementos en cola: %d", valorAEnviar, itemsEnCola);
+                ESP_LOGI(TAG1, ">>> AGUA: %d | Elementos en cola: %d", valorAEnviar, itemsEnCola);
             }
             else
             {
-                ESP_LOGI(TAG, ">>> Estación de agua llena");
+                ESP_LOGI(TAG1, ">>> Agua ya disponible");
             }
         }
 
@@ -78,11 +82,11 @@ void carga(void *pvParameters) {
             if (xQueueSend(xQueueArena, &valorAEnviar, 0) == pdPASS)
             {
                 int itemsEnCola = uxQueueMessagesWaiting(xQueueArena);
-                ESP_LOGI(TAG, ">>> ARENA: %d | Elementos en cola: %d", valorAEnviar, itemsEnCola);
+                ESP_LOGI(TAG1, ">>> ARENA: %d | Elementos en cola: %d", valorAEnviar, itemsEnCola);
             }
             else
             {
-                ESP_LOGI(TAG, ">>> Estación de arena llena");
+                ESP_LOGI(TAG1, ">>> Arena ya disponible");
             }
         }
 
@@ -129,11 +133,12 @@ void preparacion(void *pvParameters) {
             {
                 enviar = 0;
                 int itemsEnCola = uxQueueMessagesWaiting(xQueuePacks);
-                ESP_LOGI(TAG, ">>> ENVIADO: %c | Elementos en cola: %d", pack, itemsEnCola);
+                uint32_t tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
+                ESP_LOGI(TAG2, ">>> ENVIADO [%u ms]: %c | Elementos en cola: %d",tiempo, pack, itemsEnCola);
             }
             else
             {
-                ESP_LOGI(TAG, "Cola de packs llena");
+                ESP_LOGW(TAG2, "Unidad de Preparación llena");
             }
         }
 
@@ -164,17 +169,8 @@ void procesado(void *pvParameters) {
                 if (xQueueSend(xQueueEstacion1, &valorAEnviar, 0) == pdPASS)
                 {
                     enviar = 0;
-                    int itemsEnCola = uxQueueMessagesWaiting(xQueueEstacion1);
-                    ESP_LOGI(TAG, ">>> PACK ENVIADO a estación 1 (agua) | Elementos en cola: %d", itemsEnCola);
-                    vTaskDelay(pdMS_TO_TICKS(10000));
-                    char paqueteProcesado;
-                    xQueueReceive(xQueueEstacion1, &paqueteProcesado, 0);
-                    ESP_LOGI(TAG, ">>> PACK PROCESADO en estación 1 (agua) | Elementos en cola: %d", uxQueueMessagesWaiting(xQueueEstacion1));
-
-                }
-                else
-                {
-                    ESP_LOGI(TAG, "Cola de Estacion 1 llena");
+                    int itemsEnCola = uxQueueMessagesWaiting(xQueuePacks);
+                    ESP_LOGI(TAG3, ">>> Pack %c enviado a estación 1 | Elementos en cola: %d", pack, itemsEnCola);
                 }
             }
 
@@ -183,16 +179,8 @@ void procesado(void *pvParameters) {
                 if (xQueueSend(xQueueEstacion2, &valorAEnviar, 0) == pdPASS)
                 {
                     enviar = 0;
-                    int itemsEnCola = uxQueueMessagesWaiting(xQueueEstacion2);
-                    ESP_LOGI(TAG, ">>> PACK ENVIADO a estación 2 (arena) | Elementos en cola: %d", itemsEnCola);
-                    vTaskDelay(pdMS_TO_TICKS(10000));
-                    char paqueteProcesado;
-                    xQueueReceive(xQueueEstacion2, &paqueteProcesado, 0);
-                    ESP_LOGI(TAG, ">>> PACK PROCESADO en estación 2 (arena) | Elementos en cola: %d", uxQueueMessagesWaiting(xQueueEstacion2));
-                }
-                else
-                {
-                    ESP_LOGI(TAG, "Cola de Estacion 2 llena");
+                    int itemsEnCola = uxQueueMessagesWaiting(xQueuePacks);
+                    ESP_LOGI(TAG3, ">>> Pack %c enviado a estación 2 | Elementos en cola: %d", pack, itemsEnCola);
                 }
             }
 
@@ -201,20 +189,102 @@ void procesado(void *pvParameters) {
                 if (xQueueSend(xQueueEstacion3, &valorAEnviar, 0) == pdPASS)
                 {
                     enviar = 0;
-                    int itemsEnCola = uxQueueMessagesWaiting(xQueueEstacion3);
-                    ESP_LOGI(TAG, ">>> PACK ENVIADO a estación 3 (cemento) | Elementos en cola: %d", itemsEnCola);
-                    vTaskDelay(pdMS_TO_TICKS(10000));
-                    char paqueteProcesado;
-                    xQueueReceive(xQueueEstacion3, &paqueteProcesado, 0);
-                    ESP_LOGI(TAG, ">>> PACK PROCESADO en estación 1 (cemento) | Elementos en cola: %d", uxQueueMessagesWaiting(xQueueEstacion3));
-                }
-                else
-                {
-                    ESP_LOGI(TAG, "Cola de Estacion 3 llena");
+                    int itemsEnCola = uxQueueMessagesWaiting(xQueuePacks);
+                    ESP_LOGI(TAG3, ">>> Pack %c enviado a estación 3 | Elementos en cola: %d", pack, itemsEnCola);
                 }
             }  
         }
         vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+
+
+// Tarea 4: Estacion1
+void estacion1(void *pvParameters) {
+    while (1)
+    {
+       if (uxQueueMessagesWaiting(xQueueEstacion1) > 0)
+        {
+            vTaskDelay(pdMS_TO_TICKS(10000));
+            char paqueteProcesado;
+            xQueueReceive(xQueueEstacion1, &paqueteProcesado, 0);
+            contador++;
+            uint32_t tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
+            ESP_LOGI(TAG3, ">>> PACK PROCESADO en estación 1 (agua) [%u] | Elementos en cola: %d", tiempo, uxQueueMessagesWaiting(xQueueEstacion1));
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+        else
+        {
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+    }
+}
+
+
+// Tarea 5: Estacion2
+void estacion2(void *pvParameters) {
+    while (1)
+    {
+        if (uxQueueMessagesWaiting(xQueueEstacion2) > 0)
+        {
+            vTaskDelay(pdMS_TO_TICKS(10000));
+            char paqueteProcesado;
+            xQueueReceive(xQueueEstacion2, &paqueteProcesado, 0);
+            contador++;
+            uint32_t tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
+            ESP_LOGI(TAG3, ">>> PACK PROCESADO en estación 2 (arena) [%u] | Elementos en cola: %d", tiempo, uxQueueMessagesWaiting(xQueueEstacion2));
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+        else
+        {
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+    }
+}
+
+
+// Tarea 6: Estacion3
+void estacion3(void *pvParameters) {
+    while (1)
+    {
+       if (uxQueueMessagesWaiting(xQueueEstacion3) > 0)
+        {
+            vTaskDelay(pdMS_TO_TICKS(10000));
+            char paqueteProcesado;
+            xQueueReceive(xQueueEstacion3, &paqueteProcesado, 0);
+            contador++;
+            uint32_t tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
+            ESP_LOGI(TAG3, ">>> PACK PROCESADO en estación 3 (cemento) [%u] | Elementos en cola: %d", tiempo, uxQueueMessagesWaiting(xQueueEstacion3));
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+        else
+        {
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+    }
+}
+
+
+// Tarea 7: Panel de estado
+void panelEstado(void *pvParameters) {
+    while (1) 
+    {
+        const char *cemento = (uxQueueMessagesWaiting(xQueueCemento) > 0) ? "Yes" : "No";
+        const char *agua    = (uxQueueMessagesWaiting(xQueueAgua) > 0)    ? "Yes" : "No";
+        const char *arena   = (uxQueueMessagesWaiting(xQueueArena) > 0)   ? "Yes" : "No";
+        int packsEnEspera = uxQueueMessagesWaiting(xQueuePacks);
+
+        ESP_LOGI(TAG4, 
+            "\n--- PANEL DE ESTADO ---\n"
+            "Estado de materias primas:\n"
+            "  - Cemento: [%s]\n"
+            "  - Agua:    [%s]\n"
+            "  - Arena:   [%s]\n"
+            "Packs en preparación: %u\n"
+            "Packs procesados:     %d\n",
+            cemento, agua, arena, packsEnEspera, contador
+        );
+        vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }
 
@@ -285,5 +355,44 @@ void app_main(void)
         0
     );
 
-    
+    xTaskCreatePinnedToCore(
+        estacion1,
+        "Estacion1",
+        usStackDepth,
+        &pvParameters,
+        12,
+        &pvCreatedTask,
+        0
+    );
+
+    xTaskCreatePinnedToCore(
+        estacion2,
+        "Estacion2",
+        usStackDepth,
+        &pvParameters,
+        12,
+        &pvCreatedTask,
+        0
+    );
+
+    xTaskCreatePinnedToCore(
+        estacion3,
+        "Estacion3",
+        usStackDepth,
+        &pvParameters,
+        12,
+        &pvCreatedTask,
+        0
+    );
+
+    xTaskCreatePinnedToCore(
+        panelEstado,
+        "PanelEstado",
+        usStackDepth,
+        &pvParameters,
+        12,
+        &pvCreatedTask,
+        0
+    );
+
 }
