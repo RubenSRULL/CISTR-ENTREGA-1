@@ -28,6 +28,12 @@ static const char *TAG4 = "PANEL DE ESTADO";
 
 static int contador = 0;
 
+// Variables globales para tiempos
+uint32_t tiempoInicio = 0;
+uint32_t tiempoFinEstacion1 = 0;
+uint32_t tiempoFinEstacion2 = 0;
+uint32_t tiempoFinEstacion3 = 0;
+
 // Parametros tareas
 static uint32_t usStackDepth = 2048;
 TaskHandle_t pvCreatedTask = NULL;
@@ -62,7 +68,7 @@ void carga(void *pvParameters) {
             }
         }
 
-        if (boton_agua_state == 0)
+        else if (boton_agua_state == 0)
         {
             char valorAEnviar = 1;
             if (xQueueSend(xQueueAgua, &valorAEnviar, 0) == pdPASS)
@@ -76,7 +82,7 @@ void carga(void *pvParameters) {
             }
         }
 
-        if (boton_arena_state == 0)
+        else if (boton_arena_state == 0)
         {
             char valorAEnviar = 1;
             if (xQueueSend(xQueueArena, &valorAEnviar, 0) == pdPASS)
@@ -133,8 +139,8 @@ void preparacion(void *pvParameters) {
             {
                 enviar = 0;
                 int itemsEnCola = uxQueueMessagesWaiting(xQueuePacks);
-                uint32_t tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
-                ESP_LOGI(TAG2, ">>> ENVIADO [%u ms]: %c | Elementos en cola: %d",tiempo, pack, itemsEnCola);
+                tiempoInicio = xTaskGetTickCount() * portTICK_PERIOD_MS;
+                ESP_LOGI(TAG2, ">>> ENVIADO [%u ms]: %c | Elementos en cola: %d",tiempoInicio, pack, itemsEnCola);
             }
             else
             {
@@ -149,53 +155,30 @@ void preparacion(void *pvParameters) {
 
 // Tarea 3: Procesado
 void procesado(void *pvParameters) {
-    int enviar = 0;
     char pack;
     char valorAEnviar = 1;
 
     while (1)
     {
-        int hayPack = uxQueueMessagesWaiting(xQueuePacks) > 0;
-        if (hayPack)
+        xQueueReceive(xQueuePacks, &pack, 0);
+
+        if (pack == 'W')
         {
-            xQueueReceive(xQueuePacks, &pack, 0);
-            enviar = 1;
+            xQueueSend(xQueueEstacion1, &valorAEnviar, 0);
+            ESP_LOGI(TAG3, ">>> Pack %c enviado a estación 1", pack);
         }
-
-        if (enviar == 1)
+        else if (pack == 'S')
         {
-            if (pack == 'W')
-            {
-                if (xQueueSend(xQueueEstacion1, &valorAEnviar, 0) == pdPASS)
-                {
-                    enviar = 0;
-                    int itemsEnCola = uxQueueMessagesWaiting(xQueuePacks);
-                    ESP_LOGI(TAG3, ">>> Pack %c enviado a estación 1 | Elementos en cola: %d", pack, itemsEnCola);
-                }
-            }
-
-            else if (pack == 'S')
-            {
-                if (xQueueSend(xQueueEstacion2, &valorAEnviar, 0) == pdPASS)
-                {
-                    enviar = 0;
-                    int itemsEnCola = uxQueueMessagesWaiting(xQueuePacks);
-                    ESP_LOGI(TAG3, ">>> Pack %c enviado a estación 2 | Elementos en cola: %d", pack, itemsEnCola);
-                }
-            }
-
-            else if (pack == 'C')
-            {
-                if (xQueueSend(xQueueEstacion3, &valorAEnviar, 0) == pdPASS)
-                {
-                    enviar = 0;
-                    int itemsEnCola = uxQueueMessagesWaiting(xQueuePacks);
-                    ESP_LOGI(TAG3, ">>> Pack %c enviado a estación 3 | Elementos en cola: %d", pack, itemsEnCola);
-                }
-            }  
+            xQueueSend(xQueueEstacion2, &valorAEnviar, 0);
+            ESP_LOGI(TAG3, ">>> Pack %c enviado a estación 2", pack);
         }
-        vTaskDelay(pdMS_TO_TICKS(100));
+        else if (pack == 'C')
+        {
+            xQueueSend(xQueueEstacion3, &valorAEnviar, 0);
+            ESP_LOGI(TAG3, ">>> Pack %c enviado a estación 3", pack);
+        }
     }
+        vTaskDelay(pdMS_TO_TICKS(100));
 }
 
 
@@ -203,20 +186,13 @@ void procesado(void *pvParameters) {
 void estacion1(void *pvParameters) {
     while (1)
     {
-       if (uxQueueMessagesWaiting(xQueueEstacion1) > 0)
-        {
-            vTaskDelay(pdMS_TO_TICKS(10000));
-            char paqueteProcesado;
-            xQueueReceive(xQueueEstacion1, &paqueteProcesado, 0);
-            contador++;
-            uint32_t tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
-            ESP_LOGI(TAG3, ">>> PACK PROCESADO en estación 1 (agua) [%u] | Elementos en cola: %d", tiempo, uxQueueMessagesWaiting(xQueueEstacion1));
-            vTaskDelay(pdMS_TO_TICKS(100));
-        }
-        else
-        {
-            vTaskDelay(pdMS_TO_TICKS(100));
-        }
+        char paqueteProcesado;
+        xQueueReceive(xQueueEstacion1, &paqueteProcesado, portMAX_DELAY);
+        vTaskDelay(pdMS_TO_TICKS(10000));
+        contador++;
+        tiempoFinEstacion1 = xTaskGetTickCount() * portTICK_PERIOD_MS;
+        int tiempoTranscurrido = tiempoFinEstacion1 - tiempoInicio;
+        ESP_LOGI(TAG3, ">>> PACK PROCESADO en estación 1 [%d] (Total -> %d)", tiempoFinEstacion1, tiempoTranscurrido);
     }
 }
 
@@ -225,20 +201,13 @@ void estacion1(void *pvParameters) {
 void estacion2(void *pvParameters) {
     while (1)
     {
-        if (uxQueueMessagesWaiting(xQueueEstacion2) > 0)
-        {
-            vTaskDelay(pdMS_TO_TICKS(10000));
-            char paqueteProcesado;
-            xQueueReceive(xQueueEstacion2, &paqueteProcesado, 0);
-            contador++;
-            uint32_t tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
-            ESP_LOGI(TAG3, ">>> PACK PROCESADO en estación 2 (arena) [%u] | Elementos en cola: %d", tiempo, uxQueueMessagesWaiting(xQueueEstacion2));
-            vTaskDelay(pdMS_TO_TICKS(100));
-        }
-        else
-        {
-            vTaskDelay(pdMS_TO_TICKS(100));
-        }
+        char paqueteProcesado;
+        xQueueReceive(xQueueEstacion2, &paqueteProcesado, portMAX_DELAY);
+        vTaskDelay(pdMS_TO_TICKS(10000));
+        contador++;
+        tiempoFinEstacion2 = xTaskGetTickCount() * portTICK_PERIOD_MS;
+        int tiempoTranscurrido = tiempoFinEstacion2 - tiempoInicio;
+        ESP_LOGI(TAG3, ">>> PACK PROCESADO en estación 2 [%d] (Total -> %d)", tiempoFinEstacion2, tiempoTranscurrido);
     }
 }
 
@@ -247,20 +216,13 @@ void estacion2(void *pvParameters) {
 void estacion3(void *pvParameters) {
     while (1)
     {
-       if (uxQueueMessagesWaiting(xQueueEstacion3) > 0)
-        {
-            vTaskDelay(pdMS_TO_TICKS(10000));
-            char paqueteProcesado;
-            xQueueReceive(xQueueEstacion3, &paqueteProcesado, 0);
-            contador++;
-            uint32_t tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
-            ESP_LOGI(TAG3, ">>> PACK PROCESADO en estación 3 (cemento) [%u] | Elementos en cola: %d", tiempo, uxQueueMessagesWaiting(xQueueEstacion3));
-            vTaskDelay(pdMS_TO_TICKS(100));
-        }
-        else
-        {
-            vTaskDelay(pdMS_TO_TICKS(100));
-        }
+        char paqueteProcesado;
+        xQueueReceive(xQueueEstacion3, &paqueteProcesado, portMAX_DELAY);
+        vTaskDelay(pdMS_TO_TICKS(10000));
+        contador++;
+        tiempoFinEstacion3 = xTaskGetTickCount() * portTICK_PERIOD_MS;
+        int tiempoTranscurrido = tiempoFinEstacion3 - tiempoInicio;
+        ESP_LOGI(TAG3, ">>> PACK PROCESADO en estación 3 [%d] (Total -> %d)", tiempoFinEstacion3, tiempoTranscurrido);
     }
 }
 
@@ -330,7 +292,7 @@ void app_main(void)
         "Carga_Materiales",
         usStackDepth,
         &pvParameters,
-        12,
+        2,
         &pvCreatedTask,
         0
     );
@@ -340,7 +302,7 @@ void app_main(void)
         "Preparacion_Pack",
         usStackDepth,
         &pvParameters,
-        12,
+        3,
         &pvCreatedTask,
         0
     );
@@ -350,7 +312,7 @@ void app_main(void)
         "Procesado_Pack",
         usStackDepth,
         &pvParameters,
-        12,
+        4,
         &pvCreatedTask,
         0
     );
@@ -360,7 +322,7 @@ void app_main(void)
         "Estacion1",
         usStackDepth,
         &pvParameters,
-        12,
+        5,
         &pvCreatedTask,
         0
     );
@@ -370,7 +332,7 @@ void app_main(void)
         "Estacion2",
         usStackDepth,
         &pvParameters,
-        12,
+        5,
         &pvCreatedTask,
         0
     );
@@ -380,7 +342,7 @@ void app_main(void)
         "Estacion3",
         usStackDepth,
         &pvParameters,
-        12,
+        5,
         &pvCreatedTask,
         0
     );
@@ -390,7 +352,7 @@ void app_main(void)
         "PanelEstado",
         usStackDepth,
         &pvParameters,
-        12,
+        1,
         &pvCreatedTask,
         0
     );
