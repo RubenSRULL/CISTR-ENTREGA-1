@@ -113,22 +113,22 @@ void preparacion(void *pvParameters) {
         int enviar = 0;
 
         if (hayCemento && hayAgua) {
-            xQueueReceive(xQueueCemento, &material, 0);
-            xQueueReceive(xQueueAgua, &material, 0);
+            xQueueReceive(xQueueCemento, &material, portMAX_DELAY);
+            xQueueReceive(xQueueAgua, &material, portMAX_DELAY);
             pack = 'S';
             enviar = 1;
         }
 
         else if (hayCemento && hayArena) {
-            xQueueReceive(xQueueCemento, &material, 0);
-            xQueueReceive(xQueueArena, &material, 0);
+            xQueueReceive(xQueueCemento, &material, portMAX_DELAY);
+            xQueueReceive(xQueueArena, &material, portMAX_DELAY);
             pack = 'W';
             enviar = 1;
         }
 
         else if (hayArena && hayAgua) {
-            xQueueReceive(xQueueAgua, &material, 0);
-            xQueueReceive(xQueueArena, &material, 0); 
+            xQueueReceive(xQueueAgua, &material, portMAX_DELAY);
+            xQueueReceive(xQueueArena, &material, portMAX_DELAY);
             pack = 'C';
             enviar = 1;
         }
@@ -160,7 +160,7 @@ void procesado(void *pvParameters) {
 
     while (1)
     {
-        xQueueReceive(xQueuePacks, &pack, 0);
+        xQueueReceive(xQueuePacks, &pack, portMAX_DELAY);
 
         if (pack == 'W')
         {
@@ -177,8 +177,8 @@ void procesado(void *pvParameters) {
             xQueueSend(xQueueEstacion3, &valorAEnviar, 0);
             ESP_LOGI(TAG3, ">>> Pack %c enviado a estación 3", pack);
         }
-    }
         vTaskDelay(pdMS_TO_TICKS(100));
+    }
 }
 
 
